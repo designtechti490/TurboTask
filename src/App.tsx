@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, CheckCircle2 } from "lucide-react";
@@ -12,6 +12,25 @@ interface Task {
 function App() {
   const [taskText, setTaskText] = useState("");
   const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    const savedTasks = localStorage.getItem("@TurboTask:tasks");
+    if (savedTasks) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTasks(JSON.parse(savedTasks));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("@TurboTask:tasks", JSON.stringify(tasks));
+  }, [tasks]);
+
+  const handleToggleTask = (id: string) => {
+    const newTasks = tasks.map((task) =>
+      task.id === id ? { ...task, completed: !task.completed } : task,
+    );
+    setTasks(newTasks);
+  };
 
   const handleAddTask = () => {
     if (!taskText.trim()) return;
@@ -65,7 +84,7 @@ function App() {
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => {}}
+                  onClick={() => handleToggleTask(task.id)}
                   className="hover:text-green-400 transition-colors"
                 >
                   <CheckCircle2 className="w-5 h-5" />
