@@ -1,35 +1,32 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Button } from "@/components/ui/button";
+import { Input } from "./components/ui/input";
+import { Field, FieldDescription, FieldLabel } from "./components/ui/field";
+import { Plus } from "lucide-react";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <main className="bg-linear-to-r from-blue-500 to-purple-500 text-white">
+      <header className="mx-auto max-w-md w-full items-center justify-center">
+        <h1 className="text-5xl/tight text-center">✅ TurboTask</h1>
+      </header>
+      <div className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center">
+        <Field className="bg-blue-950 rounded-2xl p-2">
+          <FieldLabel htmlFor="input-task"></FieldLabel>
+          <FieldDescription className="text-lg text-white font-bold ">
+            Digite o nome da sua tarefa:
+          </FieldDescription>
+          <Input
+            id="input-task"
+            placeholder="Ler, Estudar, Tomar remédios..."
+            className="placeholder-blue-950 placeholder-opacity-100"
+          />
+          <Button className="font-bold bg-white text-black hover:text-white">
+            <Plus /> Criar
+          </Button>
+        </Field>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </main>
+  );
 }
 
-export default App
+export default App;
