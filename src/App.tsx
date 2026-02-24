@@ -1,32 +1,89 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "./components/ui/input";
-import { Field, FieldDescription, FieldLabel } from "./components/ui/field";
-import { Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+
+interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+}
 
 function App() {
+  const [taskText, setTaskText] = useState("");
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  const handleAddTask = () => {
+    if (!taskText.trim()) return;
+    const newTask = {
+      id: crypto.randomUUID(),
+      text: taskText,
+      completed: false,
+    };
+    setTasks([...tasks, newTask]);
+    setTaskText("");
+  };
+
   return (
-    <main className="bg-linear-to-r from-blue-500 to-purple-500 text-white">
-      <header className="mx-auto max-w-md w-full items-center justify-center">
-        <h1 className="text-5xl/tight text-center">✅ TurboTask</h1>
+    <main className="min-h-screen bg-linear-to-r from-blue-500 to-purple-500 text-white p-8">
+      <header className="flex items-center justify-center gap-2 mb-8">
+        <h1 className="text-5xl font-bold italic tracking-tighter">
+          ✅ TurboTask
+        </h1>
       </header>
-      <div className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center">
-        <Field className="bg-blue-950 rounded-2xl p-2">
-          <FieldLabel htmlFor="input-task"></FieldLabel>
-          <FieldDescription className="text-lg text-white font-bold ">
+
+      <div className="mx-auto w-full max-w-md flex flex-col gap-6">
+        <div className="bg-blue-950 rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+          <label className="text-lg font-bold">
             Digite o nome da sua tarefa:
-          </FieldDescription>
+          </label>
           <Input
-            id="input-task"
+            value={taskText}
+            onChange={(e) => setTaskText(e.target.value)}
             placeholder="Ler, Estudar, Tomar remédios..."
-            className="placeholder-blue-950 placeholder-opacity-100"
+            className="bg-transparent border-blue-800 text-white placeholder:text-blue-300/50"
           />
-          <Button className="font-bold bg-white text-black hover:text-white">
-            <Plus /> Criar
+          <Button
+            onClick={handleAddTask}
+            className="font-bold bg-white text-black hover:bg-blue-100 transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Criar
           </Button>
-        </Field>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {tasks.map((task) => (
+            <div
+              key={task.id}
+              className="bg-white/10 backdrop-blur-md p-4 rounded-xl flex items-center justify-between border border-white/20 group"
+            >
+              <span
+                className={`flex-1 ${task.completed ? "line-through text-white/50" : ""}`}
+              >
+                {task.text}
+              </span>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {}}
+                  className="hover:text-green-400 transition-colors"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() =>
+                    setTasks(tasks.filter((t) => t.id !== task.id))
+                  }
+                  className="hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </main>
   );
 }
-
 export default App;
