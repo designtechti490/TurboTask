@@ -2,7 +2,7 @@
 
 TurboTask is a high-performance task manager focused on simplicity and fluidity. Developed with React, TypeScript, and Vite, it offers a modern user experience with smooth animations and data persistence.
 
-![preview](github/preview.png)
+![preview](github/preview.gif)
 
 ## ✨ Features
 
