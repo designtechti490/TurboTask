@@ -11,15 +11,13 @@ interface Task {
 
 function App() {
   const [taskText, setTaskText] = useState("");
-  const [tasks, setTasks] = useState<Task[]>([]);
-
-  useEffect(() => {
+  const [tasks, setTasks] = useState<Task[]>(() => {
     const savedTasks = localStorage.getItem("@TurboTask:tasks");
     if (savedTasks) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTasks(JSON.parse(savedTasks));
+      return JSON.parse(savedTasks);
     }
-  }, []);
+    return [];
+  });
 
   useEffect(() => {
     localStorage.setItem("@TurboTask:tasks", JSON.stringify(tasks));
