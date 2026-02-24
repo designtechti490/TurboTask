@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, Pencil } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface Task {
@@ -11,6 +11,9 @@ interface Task {
 }
 
 function App() {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+
   const [taskText, setTaskText] = useState("");
   const [tasks, setTasks] = useState<Task[]>(() => {
     const savedTasks = localStorage.getItem("@TurboTask:tasks");
@@ -40,6 +43,17 @@ function App() {
     };
     setTasks([...tasks, newTask]);
     setTaskText("");
+  };
+
+  const handleSaveEdit = (id: string) => {
+    if (!editText.trim()) return;
+
+    const updatedTasks = tasks.map((task) =>
+      task.id === id ? { ...task, text: editText } : task,
+    );
+
+    setTasks(updatedTasks);
+    setEditingId(null); // Sai do modo de edição
   };
 
   type FilterType = "todas" | "pendentes" | "concluidas";
@@ -81,6 +95,22 @@ function App() {
           </Button>
         </div>
 
+        {tarefasFiltradas.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-12 text-center"
+          >
+            <div className="bg-white/10 p-4 rounded-full mb-4">
+              <span className="text-4xl">🚀</span>
+            </div>
+            <h3 className="text-lg font-semibold">Sua lista está limpa!</h3>
+            <p className="text-white/50 text-sm">
+              Que tal adicionar uma nova tarefa para turbinar seu dia?
+            </p>
+          </motion.div>
+        )}
+
         <div className="flex flex-col gap-4">
           <div className="flex justify-between text-sm font-bold px-1">
             <p className="text-blue-200">Tarefas criadas: {totalTasks}</p>
@@ -117,13 +147,42 @@ function App() {
                 layout
                 className="bg-white/10 backdrop-blur-md p-4 rounded-xl flex items-center justify-between border border-white/20 group"
               >
-                <span
-                  className={`flex-1 ${task.completed ? "line-through text-white/50" : ""}`}
-                >
-                  {task.text}
-                </span>
+                {editingId === task.id ? (
+                  // MODO EDIÇÃO
+                  <div className="flex flex-1 gap-2 mr-2">
+                    <Input
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="h-8 bg-blue-900 border-white/20"
+                      autoFocus
+                    />
+                    <Button size="sm" onClick={() => handleSaveEdit(task.id)}>
+                      Salvar
+                    </Button>
+                  </div>
+                ) : (
+                  // MODO NORMAL
+                  <span
+                    className={`flex-1 ${task.completed ? "line-through text-white/50" : ""}`}
+                    onDoubleClick={() => {
+                      // Atalho: clique duplo para editar
+                      setEditingId(task.id);
+                      setEditText(task.text);
+                    }}
+                  >
+                    {task.text}
+                  </span>
+                )}
 
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingId(task.id);
+                      setEditText(task.text);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => handleToggleTask(task.id)}
                     className="hover:text-green-400 transition-colors"
