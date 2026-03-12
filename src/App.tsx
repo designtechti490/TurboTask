@@ -30,6 +30,17 @@ import {
 } from "./components/ui/select";
 
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "./components/ui/alert-dialog";
 
 export type Prioridade = "baixa" | "media" | "alta";
 export type StatusChamado = "aberto" | "em_atendimento" | "concluido";
@@ -227,22 +238,6 @@ function App() {
               </Button>
             </Card>
 
-            {tarefasFiltradas.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-12 text-center"
-              >
-                <div className="bg-white/10 p-4 rounded-full mb-4">
-                  <span className="text-4xl">🚀</span>
-                </div>
-                <h3 className="text-lg font-semibold">Sua lista está limpa!</h3>
-                <p className="text-white/50 text-sm">
-                  Que tal adicionar uma nova tarefa para turbinar seu dia?
-                </p>
-              </motion.div>
-            )}
-
             <div className="flex flex-col gap-4">
               <div className="flex justify-between text-sm font-bold px-1">
                 <p className="text-blue-200">Tarefas criadas: {totalTasks}</p>
@@ -269,6 +264,22 @@ function App() {
                 )}
               </div>
             </div>
+
+            {tarefasFiltradas.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-12 text-center"
+              >
+                <div className="bg-white/10 p-4 rounded-full mb-4">
+                  <span className="text-4xl">🚀</span>
+                </div>
+                <h3 className="text-lg font-semibold">Sua lista está limpa!</h3>
+                <p className="text-white/50 text-sm">
+                  Que tal adicionar uma nova tarefa para turbinar seu dia?
+                </p>
+              </motion.div>
+            )}
 
             <div className="flex flex-col gap-3">
               <AnimatePresence>
@@ -326,14 +337,37 @@ function App() {
                       >
                         <CheckCircle2 className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() =>
-                          setTasks(tasks.filter((t) => t.id !== task.id))
-                        }
-                        className="hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button className="hover:text-red-400 transition-colors">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-blue-950 border border-white/20 text-white">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Essa ação não pode ser desfeita. Tem certeza que
+                              deseja excluir esta tarefa?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel className="text-black">
+                              Cancelar
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-red-600 hover:bg-red-700"
+                              onClick={() =>
+                                setTasks((prev) =>
+                                  prev.filter((t) => t.id !== task.id),
+                                )
+                              }
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </motion.div>
                 ))}
@@ -379,18 +413,16 @@ function App() {
                 <RadioGroup
                   value={prioridade}
                   onValueChange={(value) => setPrioridade(value as Prioridade)}
-                  className="text-white font-bold flex gap-8 m-4"
+                  className="text-white font-bold flex flex-col gap-3 m-4 sm:flex-row sm:flex-wrap sm:gap-6"
                 >
-                  Qual a prioridade?
-                  <div className="flex items-center gap-3">
+                  <span className="mb-1 text-sm sm:text-base">
+                    Qual a prioridade?
+                  </span>
+                  <div className="flex items-center gap-2">
                     <RadioGroupItem
                       value="baixa"
                       id="prioridade-baixa"
-                      className="border-white/60 
-                      text-white
-                    data-[state=checked]:bg-white
-                    data-[state=checked]:border-white
-                    data-[state=checked]:text-blue-900"
+                      className="border-white/60 text-white data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-blue-900"
                     />
                     <Label
                       htmlFor="prioridade-baixa"
@@ -399,15 +431,11 @@ function App() {
                       Baixa
                     </Label>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <RadioGroupItem
                       value="media"
                       id="prioridade-media"
-                      className="border-white/60 
-                      text-white
-                    data-[state=checked]:bg-white
-                    data-[state=checked]:border-white
-                    data-[state=checked]:text-blue-900"
+                      className="border-white/60 text-white data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-blue-900"
                     />
                     <Label
                       htmlFor="prioridade-media"
@@ -416,15 +444,11 @@ function App() {
                       Média
                     </Label>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <RadioGroupItem
                       value="alta"
                       id="prioridade-alta"
-                      className="border-white/60 
-                      text-white
-                    data-[state=checked]:bg-white
-                    data-[state=checked]:border-white
-                    data-[state=checked]:text-blue-900"
+                      className="border-white/60 text-white data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-blue-900"
                     />
                     <Label
                       htmlFor="prioridade-alta"
@@ -508,11 +532,11 @@ function App() {
                               Status: {chamado.status}
                             </span>
 
-                            <div className="flex gap-2 mt-3 text-xs">
+                            <div className="flex flex-col gap-2 mt-3 text-xs w-full sm:flex-row sm:flex-wrap">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="border-white/30 text-black"
+                                className="border-white/30 text-black w-full sm:w-auto"
                                 onClick={() =>
                                   handleUpdateChamadoStatus(
                                     chamado.id,
@@ -525,7 +549,7 @@ function App() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="border-emerald-400/60 text-emerald-500"
+                                className="border-emerald-400/60 text-emerald-500 w-full sm:w-auto"
                                 onClick={() =>
                                   handleUpdateChamadoStatus(
                                     chamado.id,
@@ -535,14 +559,41 @@ function App() {
                               >
                                 <TicketCheck /> Concluir
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-red-400/60 text-red-500"
-                                onClick={() => handleDeleteChamado(chamado.id)}
-                              >
-                                <Trash2 /> Excluir
-                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-red-400/60 text-red-500 w-full sm:w-auto"
+                                  >
+                                    <Trash2 /> Excluir
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="bg-blue-950 border border-white/20 text-white">
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Excluir chamado?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Essa ação não pode ser desfeita. Tem
+                                      certeza que deseja excluir este chamado?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel className="text-black">
+                                      Cancelar
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-red-600 hover:bg-red-700"
+                                      onClick={() =>
+                                        handleDeleteChamado(chamado.id)
+                                      }
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </div>
                         </div>
