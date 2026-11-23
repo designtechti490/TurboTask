@@ -30,6 +30,7 @@ import {
 } from "./components/ui/select";
 
 import { toast } from "sonner";
+import { supabase } from "./lib/supabase";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -44,11 +45,17 @@ import {
 
 export type Prioridade = "baixa" | "media" | "alta";
 export type StatusChamado = "aberto" | "em_atendimento" | "concluido";
+export type Setor =
+  | "rh"
+  | "administrativo"
+  | "manutencao"
+  | "diretoria"
+  | "recepcao";
 
 export interface Chamado {
   id: string;
   titulo: string;
-  setor: string;
+  setor: Setor;
   descricao: string;
   prioridade: Prioridade;
   status: StatusChamado;
@@ -66,31 +73,62 @@ function App() {
   const [editText, setEditText] = useState("");
 
   const [taskText, setTaskText] = useState("");
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const savedTasks = localStorage.getItem("@TurboTask:tasks");
-    if (savedTasks) {
-      return JSON.parse(savedTasks);
-    }
-    return [];
-  });
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  const [setor, setSetor] = useState<string>("");
+  const [setor, setSetor] = useState<Setor | "">("");
   const [prioridade, setPrioridade] = useState<Prioridade | "">("");
   const [tituloChamado, setTituloChamado] = useState("");
   const [descricaoChamado, setDescricaoChamado] = useState("");
-  const [chamados, setChamados] = useState<Chamado[]>(() => {
-    const savedChamados = localStorage.getItem("@TurboTask:chamados");
-    if (savedChamados) {
-      try {
-        return JSON.parse(savedChamados) as Chamado[];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [chamados, setChamados] = useState<Chamado[]>([]);
 
-  const handleUpdateChamadoStatus = (id: string, status: StatusChamado) => {
+  useEffect(() => {
+    const fetchChamados = async () => {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        toast("Erro ao buscar chamados", {
+          description: error.message,
+          style: { background: "#7f1d1d", color: "white" },
+        });
+        return;
+      }
+
+      setChamados(
+        (data ?? []).map((ticket) => ({
+          id: ticket.id,
+          titulo: ticket.title,
+          setor: ticket.sector,
+          descricao: ticket.description,
+          prioridade: ticket.priority,
+          status: ticket.status,
+          dataCriacao: ticket.created_at,
+        })),
+      );
+    };
+
+    fetchChamados();
+  }, []);
+
+  const handleUpdateChamadoStatus = async (
+    id: string,
+    status: StatusChamado,
+  ) => {
+    const { error } = await supabase
+      .from("tickets")
+      .update({ status })
+      .eq("id", id);
+
+    if (error) {
+      toast("Erro ao atualizar status", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+      return;
+    }
+
     setChamados((prev) =>
       prev.map((chamado) =>
         chamado.id === id ? { ...chamado, status } : chamado,
@@ -102,7 +140,17 @@ function App() {
     });
   };
 
-  const handleDeleteChamado = (id: string) => {
+  const handleDeleteChamado = async (id: string) => {
+    const { error } = await supabase.from("tickets").delete().eq("id", id);
+
+    if (error) {
+      toast("Erro ao excluir chamado", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+      return;
+    }
+
     setChamados((prev) => prev.filter((chamado) => chamado.id !== id));
 
     toast("Chamado excluído", {
@@ -111,7 +159,7 @@ function App() {
     });
   };
 
-  const handleCreateTicket = () => {
+  const handleCreateTicket = async () => {
     if (
       !tituloChamado.trim() ||
       !descricaoChamado.trim() ||
@@ -121,17 +169,39 @@ function App() {
       return;
     }
 
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert([
+        {
+          title: tituloChamado,
+          description: descricaoChamado,
+          priority: prioridade,
+          sector: setor,
+          status: "aberto",
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      toast("Erro ao criar chamado", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+      return;
+    }
+
     const novoChamado: Chamado = {
-      id: crypto.randomUUID(),
-      titulo: tituloChamado,
-      setor,
-      descricao: descricaoChamado,
-      prioridade: prioridade as Prioridade,
-      status: "aberto",
-      dataCriacao: new Date().toISOString(),
+      id: data.id,
+      titulo: data.title,
+      setor: data.sector,
+      descricao: data.description,
+      prioridade: data.priority,
+      status: data.status,
+      dataCriacao: data.created_at,
     };
 
-    setChamados((prev) => [...prev, novoChamado]);
+    setChamados((prev) => [novoChamado, ...prev]);
 
     setTituloChamado("");
     setDescricaoChamado("");
@@ -144,28 +214,80 @@ function App() {
   };
 
   useEffect(() => {
-    localStorage.setItem("@TurboTask:tasks", JSON.stringify(tasks));
-  }, [tasks]);
+    const fetchTasks = async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-  useEffect(() => {
-    localStorage.setItem("@TurboTask:chamados", JSON.stringify(chamados));
-  }, [chamados]);
+      if (error) {
+        toast("Erro ao buscar tarefas", {
+          description: error.message,
+          style: { background: "#7f1d1d", color: "white" },
+        });
+        return;
+      }
 
-  const handleToggleTask = (id: string) => {
-    const newTasks = tasks.map((task) =>
-      task.id === id ? { ...task, completed: !task.completed } : task,
+      setTasks(
+        (data ?? []).map((task) => ({
+          id: task.id,
+          text: task.title,
+          completed: task.is_completed,
+        })),
+      );
+    };
+
+    fetchTasks();
+  }, []);
+
+  const handleToggleTask = async (id: string) => {
+    const task = tasks.find((item) => item.id === id);
+    if (!task) return;
+
+    const completed = !task.completed;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ is_completed: completed })
+      .eq("id", id);
+
+    if (error) {
+      toast("Erro ao atualizar tarefa", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, completed } : item)),
     );
-    setTasks(newTasks);
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!taskText.trim()) return;
-    const newTask = {
-      id: crypto.randomUUID(),
-      text: taskText,
-      completed: false,
-    };
-    setTasks([...tasks, newTask]);
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert([{ title: taskText.trim(), is_completed: false }])
+      .select()
+      .single();
+
+    if (error) {
+      toast("Erro ao criar tarefa", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+      return;
+    }
+
+    setTasks((prev) => [
+      {
+        id: data.id,
+        text: data.title,
+        completed: data.is_completed,
+      },
+      ...prev,
+    ]);
     setTaskText("");
 
     toast("Tarefa criada", {
@@ -173,14 +295,27 @@ function App() {
     });
   };
 
-  const handleSaveEdit = (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (!editText.trim()) return;
 
-    const updatedTasks = tasks.map((task) =>
-      task.id === id ? { ...task, text: editText } : task,
-    );
+    const { error } = await supabase
+      .from("tasks")
+      .update({ title: editText.trim() })
+      .eq("id", id);
 
-    setTasks(updatedTasks);
+    if (error) {
+      toast("Erro ao atualizar tarefa", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === id ? { ...task, text: editText.trim() } : task,
+      ),
+    );
     setEditingId(null);
 
     toast("Tarefa atualizada", {
@@ -357,11 +492,36 @@ function App() {
                             </AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-red-600 hover:bg-red-700"
-                              onClick={() =>
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from("tasks")
+                                  .delete()
+                                  .eq("id", task.id);
+
+                                if (error) {
+                                  toast("Erro ao excluir tarefa", {
+                                    description: error.message,
+                                    style: {
+                                      background: "#7f1d1d",
+                                      color: "white",
+                                    },
+                                  });
+                                  return;
+                                }
+
                                 setTasks((prev) =>
-                                  prev.filter((t) => t.id !== task.id),
-                                )
-                              }
+                                  prev.filter((item) => item.id !== task.id),
+                                );
+
+                                toast("Tarefa excluída", {
+                                  description:
+                                    "A tarefa foi removida da lista.",
+                                  style: {
+                                    background: "#7f1d1d",
+                                    color: "white",
+                                  },
+                                });
+                              }}
                             >
                               Excluir
                             </AlertDialogAction>
@@ -392,20 +552,23 @@ function App() {
                   className="bg-transparent border-blue-800 text-white placeholder:text-blue-300/50"
                 />
 
-                <Select value={setor} onValueChange={setSetor}>
+                <Select
+                  value={setor}
+                  onValueChange={(value) => setSetor(value as Setor)}
+                >
                   <SelectTrigger className="w-full max-w-48 text-white font-bold">
                     <SelectValue placeholder="Setor do incidente" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectLabel>Setor</SelectLabel>
-                      <SelectItem value="Administrativo">
-                        Administrativo
+                      <SelectItem value="manutencao">Manutenção</SelectItem>
+                      <SelectItem value="rh">RH</SelectItem>
+                      <SelectItem value="administracao">
+                        Administração
                       </SelectItem>
-                      <SelectItem value="Diretoria">Diretoria</SelectItem>
-                      <SelectItem value="Manutencao">Manutenção</SelectItem>
-                      <SelectItem value="Recepcao">Recepção</SelectItem>
-                      <SelectItem value="RH">RH</SelectItem>
+                      <SelectItem value="diretoria">Diretoria</SelectItem>
+                      <SelectItem value="recepcao">Recepção</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
