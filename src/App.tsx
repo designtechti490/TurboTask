@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -69,6 +70,191 @@ interface Task {
 }
 
 function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [submittingAuth, setSubmittingAuth] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) {
+        setSession(nextSession);
+        setAuthLoading(false);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) {
+        toast("Erro ao carregar sessão", {
+          description: error.message,
+          style: { background: "#7f1d1d", color: "white" },
+        });
+      } else {
+        setSession(data.session);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthError(null);
+    setAuthNotice(null);
+    setSubmittingAuth(true);
+
+    try {
+      const { data, error } = isSignUp
+        ? await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        setAuthError(error.message);
+      } else if (isSignUp && !data.session) {
+        setAuthNotice(
+          "Conta criada. Verifique seu e-mail para confirmar o cadastro.",
+        );
+      }
+    } catch (error) {
+      setAuthError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir a autenticação.",
+      );
+    } finally {
+      setSubmittingAuth(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast("Erro ao sair", {
+        description: error.message,
+        style: { background: "#7f1d1d", color: "white" },
+      });
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-linear-to-r from-blue-500 to-purple-500 p-4 text-white">
+        <p>Carregando sessão...</p>
+      </main>
+    );
+  }
+
+  if (!session) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-linear-to-r from-blue-500 to-purple-500 p-4 text-white">
+        <form
+          onSubmit={handleAuthSubmit}
+          className="w-full max-w-sm space-y-4 rounded-2xl border border-white/10 bg-blue-950/60 p-6 shadow-2xl"
+        >
+          <div className="text-center">
+            <h1 className="text-3xl font-bold italic tracking-tight">
+              ✅ TurboTask
+            </h1>
+            <p className="mt-2 text-sm text-white/70">
+              {isSignUp ? "Crie sua conta" : "Entre para acessar suas tarefas"}
+            </p>
+          </div>
+
+          <Input
+            type="email"
+            autoComplete="email"
+            placeholder="Seu e-mail"
+            aria-label="Seu e-mail"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+          <Input
+            type="password"
+            autoComplete={isSignUp ? "new-password" : "current-password"}
+            placeholder="Sua senha (mín. 6 caracteres)"
+            aria-label="Sua senha"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            minLength={6}
+            required
+          />
+
+          {authError && (
+            <p role="alert" className="text-sm text-red-300">
+              {authError}
+            </p>
+          )}
+          {authNotice && (
+            <p role="status" className="text-sm text-green-200">
+              {authNotice}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full bg-white font-bold text-black hover:bg-blue-100"
+            disabled={submittingAuth}
+          >
+            {submittingAuth
+              ? "Aguarde..."
+              : isSignUp
+                ? "Cadastrar"
+                : "Entrar"}
+          </Button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp((current) => !current);
+              setAuthError(null);
+              setAuthNotice(null);
+            }}
+            className="w-full text-xs text-white/70 underline hover:text-white"
+          >
+            {isSignUp
+              ? "Já tem conta? Fazer login"
+              : "Não tem conta? Cadastre-se"}
+          </button>
+        </form>
+      </main>
+    );
+  }
+
+  return (
+    <TurboTask
+      key={session.user.id}
+      userId={session.user.id}
+      email={session.user.email ?? ""}
+      isIT={session.user.app_metadata.role === "it"}
+      onSignOut={handleLogout}
+    />
+  );
+}
+
+function TurboTask({
+  userId,
+  email,
+  isIT,
+  onSignOut,
+}: {
+  userId: string;
+  email: string;
+  isIT: boolean;
+  onSignOut: () => void;
+}) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
@@ -83,21 +269,25 @@ function App() {
 
   useEffect(() => {
     const fetchChamados = async () => {
-      const { data, error } = await supabase
-        .from("tickets")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const ticketsQuery = supabase.from("tickets").select("*");
+      const scopedQuery = isIT
+        ? ticketsQuery
+        : ticketsQuery.eq("user_id", userId);
+      const { data: scopedData, error: scopedError } = await scopedQuery.order(
+        "created_at",
+        { ascending: false },
+      );
 
-      if (error) {
+      if (scopedError) {
         toast("Erro ao buscar chamados", {
-          description: error.message,
+          description: scopedError.message,
           style: { background: "#7f1d1d", color: "white" },
         });
         return;
       }
 
       setChamados(
-        (data ?? []).map((ticket) => ({
+        (scopedData ?? []).map((ticket) => ({
           id: ticket.id,
           titulo: ticket.title,
           setor: ticket.sector,
@@ -110,12 +300,14 @@ function App() {
     };
 
     fetchChamados();
-  }, []);
+  }, [isIT, userId]);
 
   const handleUpdateChamadoStatus = async (
     id: string,
     status: StatusChamado,
   ) => {
+    if (!isIT) return;
+
     const { error } = await supabase
       .from("tickets")
       .update({ status })
@@ -141,7 +333,10 @@ function App() {
   };
 
   const handleDeleteChamado = async (id: string) => {
-    const { error } = await supabase.from("tickets").delete().eq("id", id);
+    const { error } = await supabase
+      .from("tickets")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       toast("Erro ao excluir chamado", {
@@ -173,6 +368,7 @@ function App() {
       .from("tickets")
       .insert([
         {
+          user_id: userId,
           title: tituloChamado,
           description: descricaoChamado,
           priority: prioridade,
@@ -218,6 +414,7 @@ function App() {
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
+        .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -238,7 +435,7 @@ function App() {
     };
 
     fetchTasks();
-  }, []);
+  }, [userId]);
 
   const handleToggleTask = async (id: string) => {
     const task = tasks.find((item) => item.id === id);
@@ -248,7 +445,8 @@ function App() {
     const { error } = await supabase
       .from("tasks")
       .update({ is_completed: completed })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId);
 
     if (error) {
       toast("Erro ao atualizar tarefa", {
@@ -268,7 +466,9 @@ function App() {
 
     const { data, error } = await supabase
       .from("tasks")
-      .insert([{ title: taskText.trim(), is_completed: false }])
+      .insert([
+        { user_id: userId, title: taskText.trim(), is_completed: false },
+      ])
       .select()
       .single();
 
@@ -301,7 +501,8 @@ function App() {
     const { error } = await supabase
       .from("tasks")
       .update({ title: editText.trim() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId);
 
     if (error) {
       toast("Erro ao atualizar tarefa", {
@@ -337,10 +538,22 @@ function App() {
 
   return (
     <main className="min-h-screen bg-linear-to-r from-blue-500 to-purple-500 text-white p-8">
-      <header className="flex items-center justify-center gap-2 mb-8">
+      <header className="mx-auto mb-8 flex w-full max-w-5xl flex-col items-center justify-between gap-4 sm:flex-row">
         <h1 className="text-5xl font-bold italic tracking-tighter">
           ✅ TurboTask
         </h1>
+        <div className="flex items-center gap-3">
+          <span className="max-w-56 truncate text-xs text-white/80">{email}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-white/40 bg-blue-950/30 text-white hover:bg-white/10 hover:text-white"
+            onClick={onSignOut}
+          >
+            Sair
+          </Button>
+        </div>
       </header>
 
       <Tabs defaultValue="tasks" className="w-full">
@@ -496,7 +709,8 @@ function App() {
                                 const { error } = await supabase
                                   .from("tasks")
                                   .delete()
-                                  .eq("id", task.id);
+                                  .eq("id", task.id)
+                                  .eq("user_id", userId);
 
                                 if (error) {
                                   toast("Erro ao excluir tarefa", {
@@ -653,7 +867,7 @@ function App() {
             {chamados.length > 0 && (
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between text-sm font-bold px-1 text-blue-100">
-                  <span>Chamados abertos: {chamados.length}</span>
+                  <span>Chamados no painel: {chamados.length}</span>
                 </div>
 
                 <AnimatePresence>
@@ -696,67 +910,73 @@ function App() {
                             </span>
 
                             <div className="flex flex-col gap-2 mt-3 text-xs w-full sm:flex-row sm:flex-wrap">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-white/30 text-black w-full sm:w-auto"
-                                onClick={() =>
-                                  handleUpdateChamadoStatus(
-                                    chamado.id,
-                                    "em_atendimento",
-                                  )
-                                }
-                              >
-                                <Pickaxe /> Em atendimento
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-emerald-400/60 text-emerald-500 w-full sm:w-auto"
-                                onClick={() =>
-                                  handleUpdateChamadoStatus(
-                                    chamado.id,
-                                    "concluido",
-                                  )
-                                }
-                              >
-                                <TicketCheck /> Concluir
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                              {isIT && (
+                                <>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="border-red-400/60 text-red-500 w-full sm:w-auto"
+                                    className="border-white/30 text-black w-full sm:w-auto"
+                                    onClick={() =>
+                                      handleUpdateChamadoStatus(
+                                        chamado.id,
+                                        "em_atendimento",
+                                      )
+                                    }
                                   >
-                                    <Trash2 /> Excluir
+                                    <Pickaxe /> Em atendimento
                                   </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="bg-blue-950 border border-white/20 text-white">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Excluir chamado?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Essa ação não pode ser desfeita. Tem
-                                      certeza que deseja excluir este chamado?
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="text-black">
-                                      Cancelar
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      className="bg-red-600 hover:bg-red-700"
-                                      onClick={() =>
-                                        handleDeleteChamado(chamado.id)
-                                      }
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-emerald-400/60 text-emerald-500 w-full sm:w-auto"
+                                    onClick={() =>
+                                      handleUpdateChamadoStatus(
+                                        chamado.id,
+                                        "concluido",
+                                      )
+                                    }
+                                  >
+                                    <TicketCheck /> Concluir
+                                  </Button>
+                                </>
+                              )}
+                              {(isIT || chamado.status === "aberto") && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-red-400/60 text-red-500 w-full sm:w-auto"
                                     >
-                                      Excluir
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                                      <Trash2 /> Excluir
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="bg-blue-950 border border-white/20 text-white">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Excluir chamado?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Essa ação não pode ser desfeita. Tem
+                                        certeza que deseja excluir este chamado?
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="text-black">
+                                        Cancelar
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-red-600 hover:bg-red-700"
+                                        onClick={() =>
+                                          handleDeleteChamado(chamado.id)
+                                        }
+                                      >
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </div>
                           </div>
                         </div>
