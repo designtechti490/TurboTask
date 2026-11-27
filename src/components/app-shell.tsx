@@ -52,10 +52,18 @@ export function AppShell({
             <Inbox /> Chamados
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="tasks" forceMount>
+        <TabsContent
+          value="tasks"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
           {tasks}
         </TabsContent>
-        <TabsContent value="tickets" forceMount>
+        <TabsContent
+          value="tickets"
+          forceMount
+          className="data-[state=inactive]:hidden"
+        >
           {tickets}
         </TabsContent>
       </Tabs>
