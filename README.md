@@ -20,6 +20,13 @@ TurboTask is a high-performance task manager focused on simplicity and fluidity.
 ![Typescript](https://img.shields.io/badge/-Typescript-121011?style=for-the-badge&logo=typescript)&nbsp;
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)&nbsp;
 
+## 📁 Source structure
+
+The application is organized by feature under `src/features`: authentication,
+tasks, and tickets each own their screens, state, and domain types. Shared
+navigation lives in `src/components`, while reusable UI primitives remain in
+`src/components/ui`.
+
 ## ⚡ How to setup
 
 ![How to Setup and Run](github/how-to-setup.png)
